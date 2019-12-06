@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'ponyportal/style.css' %}">
+    <meta charset="UTF-8">
+    <title>List</title>
+</head>
+<body>
+<div style="padding:5%;">
+<h1> Search Engine of the My Little Pony episodes/movie scripts.</h1>
+<p>Useful for finding words/phrases in documents.</p>
+
+<p>Advanced Search capabilities are available using the '#' preceding a query.</p>
+   <p> Available commands:</p>
+        <p style="padding-left:2%;">#episdoes - returns a list of every episode title in order of episodes number</p>
+       <p style="padding-left:2%;"> #characters - returns a list of every "speaker" (the bold names left of the line) from the scripts.</p>
+        <p style="padding-left:2%;">#episode(n) - where (n) is replaced with an episode number, and will navigate straight to that script's html</p>
+</div>
+</body>
+</html>

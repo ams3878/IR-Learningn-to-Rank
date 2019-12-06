@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'ponyportal/style.css' %}">
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+<form id="form2" method="get" action=".">
+    <input id="form2_input" value="test" name="pre_query" style="display: none;">
+</form>
+<div id="title">
+    <a href="."><img
+            src="https://fontmeme.com/permalink/191119/a3a8a8436acf9f3088d264d383938a34.png"
+            alt="my-little-pony-font" border="0"></a>
+</div>
+<div id="cover">
+    <form name="form1" method="get" action="./results">
+        <div class="tb">
+            <div class="td">
+                <input name="query" type="text" placeholder="Search" required >
+            </div>
+            <div class="td" id="s-cover">
+                <button type="submit">
+                    <div id="s-circle"></div>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+<div id="nav-bar-home">
+    <a href="./info">Site Info</a>
+</div>
+</body>
+</html>

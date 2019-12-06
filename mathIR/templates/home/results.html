@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'ponyportal/style.css' %}">
+    <title>Results</title>
+</head>
+<body>
+<div id="title_results">
+    <a href=".">
+        <img src="https://fontmeme.com/permalink/191119/a3a8a8436acf9f3088d264d383938a34.png"
+             alt="my-little-pony-font" border="0"></a>
+</div>
+<form  method="get" action="./results">
+
+    <div id="cover-results">
+        <div class="search-form">
+            <div class="tb">
+                <div class="td"><input name="query" type="text" value="{{term_string}}" required></div>
+                <div class="td" id="s-cover">
+                    <button type="submit">
+                        <div id="s-circle"></div>
+                        <span></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="nav-bar">
+        <a href="./episodes">Episode List</a>
+        <a href="./ponies">Character List</a>
+        <a href="./info">Site Info</a>
+    </div>
+    <div class="tb">
+        <div class="td" id="results-frame-3">
+            <h1>Filters:</h1>
+
+            {% for f in facets %}
+            <div>
+                <input type="checkbox" id="{{f.0}}" name="Season {{f.1}}" onchange="this.form.submit()" {{f.2}}>
+                <label for="{{f.0}}">{{f.0}}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="td" id="results-frame-1">
+            <ul>
+                {% if results_header %}
+                <div class="results-header">
+                    <h1>{{ results_header }}</h1>
+                </div>
+                {% endif %}
+
+                {% for episode, info in result_dict.items %}
+                <li class="results-title"><a href="../static/episodes_html/{{info.0}}.html">{{ episode }}</a></li>
+                    {% for line in info.1 %}
+                    {% autoescape off %}
+                    <p class="results-body"> {{line}} </p>
+                        {% endautoescape %}
+                    {% endfor %}
+                {% endfor %}
+
+            </ul>
+        </div>
+        <div class="td" id="results-frame-2">
+            <h1> Related Search</h1>
+            {% for r in related %}
+            <div>
+                <a href="./results?query={{r.0}}">{{ r.0 }}</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</form>
+</body>
+</html>
