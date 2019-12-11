@@ -12,108 +12,89 @@ utils.py
 
 import re
 import string
+import os
+import csv
 from math import ceil
 from ..models import *
 from nltk.tokenize import word_tokenize
 
-INDEX_FILENAME = 'ponyportal\static\ponyportal\mlp_index.tsv'
-WINDOW_INDEX_FILENAME = 'ponyportal\static\ponyportal\mlp_window_index.tsv'
-DOC_INDEX_FILENAME = 'ponyportal\static\ponyportal\doc_names.tsv'
+COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
+INDEX_DIR = "mathIR\static\mathIR"
+DOC_INDEX_FILE_NAME = "doc_index.tsv"
+INDEX_FILE_NAME = "wiki_index.tsv"
+STEM_FILE_NAME = "wiki_stems.tsv"
+POSITIONAL_INDEX_FILE_NAME = "wiki_positions.tsv"
+BIGRAM_INDEX_FILE_NAME = "wiki_bigrams.tsv"
+LINKED_FROM_INDEX_FILE_NAME = "linked_from_index.tsv"
+PAGE_RANK_INDEX = 'page_rank_index.tsv'
+PAGE_RANK_PARAM = 0.15
 
+def rank_pages(doc_index):
+    page_count = len(doc_index)
+    link_total = 0
+    docs_to_index = {}
+    ind = 0
+    for doc in doc_index:
+        link_total += doc_index[doc]['links']
+        docs_to_index[doc] = ind
+        ind += 1
+    prev_ranks = [len(doc_index[doc]['linked_from'])/link_total for doc in doc_index]
+    default_value = PAGE_RANK_PARAM / page_count
 
-# ---------------------------------------------------------------------------------
-# creates all the episodes files needed for indexing
-#
-# @input: master: html file of all the episodes
-#         ep_loc: a directory to store the files
-# @return: None
-# ---------------------------------------------------------------------------------
-def create_episode_files(master, ep_loc):
-    f = open(master)
-    line = f.readline()
-    line_list = line.split('>')
+    err = 1
+    new_ranks = []
+    while err > 0.001:
+        new_ranks = [default_value]*page_count
 
-    count = 0
-    while line:
-        meta = "meta[ "
-        script = ''
-        script_tag = ''
-        script_html = ''
-        try:
-            if line_list[0].split()[0] == '<h2':
-                count += 1
-                line_count = 0
-                title = line_list[2][:-3]
-                meta = meta + "title:" + title
-                line = f.readline()
-                line_list = line.split('>')
-                while line:
-                    try:
-                        if line_list[0].split()[0] == '<h2':
-                            break
-                    except IndexError:
-                        pass
-                    if line != '':
-                        clean_line = cleanhtml(line)
-                        script_html = script_html + line
-                        if clean_line[1] != '\n':
-                            line_count += 1
-                            script_tag = script_tag + clean_line[1]
-                        if clean_line[0] != '\n':
-                            script = script + '\t' + clean_line[0]
-                    line = f.readline()
-                    line_list = line.split('>')
-                meta = meta + ', lines: ' + str(line_count) + "]\n"
-                f_new_tags = open(ep_loc[:-1] + "_tags\\" + str(count), 'w')
-                f_new_tags.write(meta)
-                f_new_tags.write(script_tag)
-                f_new_tags.close()
-                f_new_html = open(ep_loc[:-1] + "_html\\" + str(count) + '.html', 'w')
-                f_new_html.write(meta)
-                f_new_html.write(script_html)
-                f_new_html.close()
-                f_new = open(ep_loc + str(count), 'w')
-                f_new.write(meta)
-                f_new.write(script)
-                f_new.close()
-                season = get_season(count)
-                season_obj = Season.objects.filter(id=season)
-                if not season_obj:
-                    q = Season(id=season)
-                    q.save()
-                    season_obj = Season.objects.filter(id=season)
-                doc_obj = Document.objects.filter(id=count)
-                if not doc_obj:
-                    if season >= 10:
-                        script_type = 'feature'
-                    else:
-                        script_type = 'episode'
-                    q = Document(id=count,
-                                 title=title,
-                                 script_type=script_type,
-                                 )
-                    q.save()
-                    doc_obj = Document.objects.filter(id=count)
-                season_doc_obj = SeasonToDocument.objects.filter(episode=doc_obj[0], season=season_obj[0])
-                if not season_doc_obj:
-                    q = SeasonToDocument(episode=doc_obj[0], season=season_obj[0])
-                    q.save()
-                f_new.close()
+        for doc in doc_index:
+            current_ind = docs_to_index[doc]
+            linked_from = doc_index[doc]['linked_from']
+            num_from = len(linked_from)
+            if num_from > 0:
+                to_add= (1 - PAGE_RANK_PARAM) * prev_ranks[current_ind] / num_from
+                for link in linked_from:
+                    from_ind = docs_to_index[link]
+                    new_ranks[from_ind] += to_add
+            else:
+                to_add = (1 - PAGE_RANK_PARAM) * prev_ranks[current_ind] / page_count
+                for page in doc_index:
+                    from_ind = docs_to_index[page]
+                    new_ranks[from_ind] += to_add
+        err = vector_diff(new_ranks, prev_ranks)
+        print(err)
+        prev_ranks = new_ranks
 
-        except IndexError:
-            pass
-    f.close()
+    fn = PAGE_RANK_INDEX
+    with open(fn, 'w', newline='', encoding='utf-8') as output_file:
+        writer = csv.writer(output_file, delimiter='\t')
+        for key in docs_to_index:
+            line = [key, new_ranks[docs_to_index[key]]]
+            writer.writerow(line)
+    return new_ranks
 
+def vector_diff(v1, v2):
+    if len(v1) != len(v2):
+        return 'nani'
+    diff = 0
+    for ind in range(0, len(v1)):
+        diff += abs(v1[ind] - v2[ind])
+    return diff
+
+def get_translation_dict():
+    punctuation_dict = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
+    punctuation_dict[ord('\'')] = ''
+    return punctuation_dict
 
 # ---------------------------------------------------------------------------------
 # create an index from a tsv with the position of words in the document
 #
-# @input: filename: tsv of positions
+# @input: none
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_pos_index(filename):
+def get_pos_index():
     index = {}
-    with open('ponyportal\static\ponyportal\\' + filename, 'r') as index_file:
+    fn = os.path.join(INDEX_DIR, POSITIONAL_INDEX_FILE_NAME)
+    with open(fn, 'r', encoding='utf-8') as index_file:
         line = index_file.readline()
         while line:
             line = line.split('\t')
@@ -134,12 +115,13 @@ def get_pos_index(filename):
 # ---------------------------------------------------------------------------------
 # create an index from a tsv with all the bigrams in the document
 #
-# @input: filename: tsv of bigrams
+# @input: none
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_bigrams(filename):
+def get_bigrams():
     index = {}
-    with open('ponyportal\static\ponyportal\\' + filename, 'r') as index_file:
+    fn = os.path.join(INDEX_DIR, BIGRAM_INDEX_FILE_NAME)
+    with open(fn, 'r', encoding='utf-8') as index_file:
         line = index_file.readline()
         while line:
             line = line.split('\t')
@@ -159,51 +141,24 @@ def get_bigrams(filename):
 # @input: filename: tsv of frequencies
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_index(filename):
+def get_index():
     index = {}
-    with open( 'ponyportal\static\ponyportal\\' + filename, 'r') as index_file:
-        line = index_file.readline()
-        while line:
+    filename = os.path.join(INDEX_DIR, INDEX_FILE_NAME)
+    with open(filename, 'r') as index_file:
+        for line in index_file:
             line = line.split('\t')
             posting_list = line[2:]
-            posting_dict = {'docs': {}}
+            posting_dict = {}
             for posting in posting_list:
                 posting = posting.split(':')
-                posting_dict['docs'][posting[0]] = int(posting[1])
-            posting_dict['count'] = str(line[1])
+                posting_dict[posting[0]] =  int(posting[1])
             index[line[0]] = posting_dict
-
-            line = index_file.readline()
     return index
 
 
-# ---------------------------------------------------------------------------------
-# create an index from a tsv with the frequcency of words in  document windows
-# window size is set to be one line
-# @input: None
-# @output: index: dictionary
-# ---------------------------------------------------------------------------------
-def get_window_index():
-    index = {}
-    with open(WINDOW_INDEX_FILENAME, 'r') as index_file:
-        line = index_file.readline()
-        while line:
-            line = line.split('\t')
-            posting_list = line[2:]
-            posting_dict = {'count': int(line[1])}
-            for posting in posting_list:
-                posting = posting.split(':')
-                if posting[0] not in posting_dict:
-                    posting_dict[posting[0]] = []
-                posting_dict[posting[0]].append(int(posting[1]))
-            index[line[0]] = posting_dict
-
-            line = index_file.readline()
-    return index
-
 
 # ---------------------------------------------------------------------------------
-# create an index from a tsv mapping episdoe number to title, word count
+# create an index from a tsv mapping episode number to title, word count
 # and line count
 #
 # @input: None
@@ -211,12 +166,30 @@ def get_window_index():
 # ---------------------------------------------------------------------------------
 def get_docs_index():
     doc_index = {}
-    with open(DOC_INDEX_FILENAME, 'r') as doc_file:
-        line = doc_file.readline()
-        while line:
-            line = line.split('\t')
-            doc_index[line[0]] = (line[1], line[2])
-            line = doc_file.readline()
+    filename = os.path.join(INDEX_DIR, DOC_INDEX_FILE_NAME)
+    with open(filename, 'r', encoding='utf-8') as doc_file:
+        for line in doc_file:
+            line = line[:-1]
+            split_line = line.split('\t')
+            doc_index[split_line[0]] = {
+                'title' : split_line[1],
+                'name' : split_line[2],
+                'words' : int(split_line[3]),
+                'links' : int(split_line[4]),
+                'links_to' : [],
+                'linked_from' : []
+            }
+            if int(split_line[4]) > 0:
+                doc_index[split_line[0]]['links_to'] = split_line[5:]
+
+    filename = os.path.join(INDEX_DIR, LINKED_FROM_INDEX_FILE_NAME)
+    with open(filename, 'r', encoding='utf-8') as link_file:
+        for line in link_file:
+            line = line[:-1]
+            split_line = line.split('\t')
+            for doc in split_line[2:]:
+                doc_index[line[0]]['linked_from'].append(doc)
+
     return doc_index
 
 
@@ -226,133 +199,14 @@ def get_docs_index():
 # @input: filename: tsv of stems
 # @output: stems: dictionary
 # ---------------------------------------------------------------------------------
-def get_stems(filename):
+def get_stems():
     stems = {}
-    with open('ponyportal\static\ponyportal\\' + filename, 'r') as stem_file:
-        line = stem_file.readline()
-        while line:
+    filename = os.path.join(INDEX_DIR, STEM_FILE_NAME)
+    with open(filename, 'r', encoding='utf-8') as stem_file:
+        for line in stem_file:
             line = line.split('\t')
             stems[line[0]] = line[1:-1]
-            line = stem_file.readline()
     return stems
-
-
-# ---------------------------------------------------------------------------------
-# removes all html tags from a document, and adds "%%" tag on speakers
-#
-# @input: raw_html: string of txt to be cleaned
-# @output: cleantext: text without tags
-#          taggedtext: text with names tagged
-# ---------------------------------------------------------------------------------
-def cleanhtml(raw_html):
-    find_name = re.compile('</dd><dd><b>.*?</b>')
-
-    temp = re.match(find_name, raw_html)
-    tagged = raw_html
-    if temp:
-        match = temp.group(0).split('<b>')[1].split('</b>')[0]
-        tagged = re.sub(find_name, '%%' + match + '%%',  raw_html)
-
-    cleanr = re.compile('<.*?>')
-    taggedtext = re.sub(cleanr, '', tagged)
-    cleantext = re.sub(cleanr, '', raw_html)
-    return cleantext, taggedtext
-
-
-# ---------------------------------------------------------------------------------
-# Creates characters by looking at the tagged HTML and adds them to Django model
-#
-# @input: None
-# @ouput: None
-# ---------------------------------------------------------------------------------
-def create_new_chars():
-    chars_set = list(Character.objects.all())
-    chars = []
-    for c in chars_set:
-        chars.append(c.id)
-    for i in range(243):
-        f = open('ponyportal\static\episodes_tags\\' + str(i+1))
-        meta = f.readline()
-        line = f.readline()
-        while line:
-            try:
-                findname = re.compile('%%.*?%%')
-                temp = re.match(findname, line)
-
-                if temp:
-                    name = temp.group(0)[2:-2]
-                    char = re.sub(r'\bbut.*', '', name)
-                    char = re.sub(r'\bexcept.*', '', char)
-                    char = (re.sub(r'\band\b', ',', char)).split(',')
-                    for c in char:
-                        if c not in chars:
-                            q = Character(id=re.sub(r'[^\w\s]', '', c))
-                            q.save()
-                            chars.append(c)
-            except IndexError:
-                pass
-            line = f.readline()
-
-
-# ---------------------------------------------------------------------------------
-# Creates Documents for each episodes, and adds the Character relation if they
-# appear in that episode
-#
-# @input: None
-# @ouput: None
-# ---------------------------------------------------------------------------------
-def create_char_episode():
-    for i in range(243):
-        f = open('ponyportal\static\episodes\\' + str(i+1))
-        line = f.readline()
-        meta = f.readline()
-        doc_obj = Document.objects.filter(id=i + 1)[0]
-        while line:
-            try:
-                findname = re.compile('%%.*?%%')
-                temp = re.match(findname, line)
-
-                if temp:
-                    name = temp.group(0)[2:-2]
-                    char = name.split('and')
-                    if len(char) > 1 and char[1]:
-                        char_name = re.sub(r'\W+', '', char[1])
-                        char_obj = Character.objects.filter(id=char_name)[0]
-                        if not CharacterToDocument.objects.filter(character=char_obj, episode=doc_obj):
-                            q = CharacterToDocument(character=char_obj, episode=doc_obj)
-                            q.save()
-                    char = char[0].split(',')
-                    for c in char:
-                        char_name = re.sub(r'\W+', '', c)
-                        char_obj = Character.objects.filter(id=char_name)[0]
-                        if not CharacterToDocument.objects.filter(character=char_obj, episode=doc_obj):
-                            char_obj = Character.objects.filter(id=char_name)[0]
-                            doc_obj = Document.objects.filter(id=i+1)[0]
-                            q = CharacterToDocument(character=char_obj, episode=doc_obj)
-                            q.save()
-            except IndexError:
-                pass
-            line = f.readline()
-
-
-# ---------------------------------------------------------------------------------
-# Creates Season django models and adds relations for the episodes to seasons
-#
-# @input: None
-# @ouput: None
-# ---------------------------------------------------------------------------------
-def get_season(episode):
-    if episode <= 52:
-        return ceil(episode / 26)
-    elif episode <= 65:
-        return 3
-    elif episode <= 221:
-        return 3 + ceil((episode - 65) / 26)
-    elif episode <= 239:
-        return 10
-    else:
-        return episode - 239 + 10
-
 
 # ---------------------------------------------------------------------------------
 # Creates document summaries for each related document and highlights
@@ -364,6 +218,7 @@ def get_season(episode):
 #         episode: number of the episode used to get the raw html
 # @return: matched_lines: top 5 of line of the doc sum
 # ---------------------------------------------------------------------------------
+# TODO refactor this to work with tar files
 def get_lines_keywords(terms, idf_list, episode):
     f = open('ponyportal\static\episodes\\' + str(episode), 'r')
     stopword_list = get_stopwords()
@@ -410,7 +265,7 @@ def get_lines_keywords(terms, idf_list, episode):
 # calculate the dice coefficient of two terms
 #
 # @input: term1: list of documents that contain the first term
-#         term2L list of ducuments that contain the second term
+#         term2: list of documents that contain the second term
 # @output: float: dice coefficient
 # ---------------------------------------------------------------------------------
 def get_dice_coeff(term1, term2):
