@@ -4,16 +4,62 @@
     <meta charset="UTF-8">
 
     {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'style2.css' %}">
     <title>Results</title>
 </head>
 <body>
+<ul class="lightrope">
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+  <li></li>
+</ul>
 <div id="title_results">
     <a href=".">
-        <img src="https://fontmeme.com/permalink/191119/a3a8a8436acf9f3088d264d383938a34.png"
+        <img
+            src="https://fontmeme.com/permalink/191213/2e36b45b702589df162c1bd25f6359de.png"
              alt="my-little-pony-font" border="0"></a>
 </div>
 <form  method="get" action="./results">
+
 
     <div id="cover-results">
         <div class="search-form">
@@ -29,13 +75,12 @@
         </div>
     </div>
     <div id="nav-bar">
-        <a href="./episodes">Episode List</a>
-        <a href="./ponies">Character List</a>
-        <a href="./info">Site Info</a>
+        <a href="./episodes">Wolfram Alpha</a>
+        <a href="./info">Help!</a>
     </div>
     <div class="tb">
         <div class="td" id="results-frame-3">
-            <h1>Filters:</h1>
+            <h1 style="color:#32A737">Filters:</h1>
 
             {% for f in facets %}
             <div>
@@ -45,26 +90,26 @@
             {% endfor %}
         </div>
         <div class="td" id="results-frame-1">
-            <ul>
                 {% if results_header %}
                 <div class="results-header">
-                    <h1>{{ results_header }}</h1>
+                    <h1 style="color:#32A737">{{ results_header }}</h1>
                 </div>
                 {% endif %}
 
                 {% for episode, info in result_dict.items %}
-                <li class="results-title"><a href="../static/episodes_html/{{info.0}}.html">{{ episode }}</a></li>
-                    {% for line in info.1 %}
-                    {% autoescape off %}
-                    <p class="results-body"> {{line}} </p>
-                        {% endautoescape %}
-                    {% endfor %}
+                <div style="border-style: solid;border-color:#DC2D08;margin-bottom:10px;padding-left:5px">
+                    <h2 class="results-title"><a href="../static/episodes_html/{{info.0}}.html">{{ episode }}</a></h2>
+                        {% for line in info %}
+                        {% autoescape off %}
+                        <p class="results-body"> {{line}} </p>
+                            {% endautoescape %}
+                        {% endfor %}
+                </div>
                 {% endfor %}
 
-            </ul>
         </div>
         <div class="td" id="results-frame-2">
-            <h1> Related Search</h1>
+            <h1 style="color:#32A737"> Related Wikis</h1>
             {% for r in related %}
             <div>
                 <a href="./results?query={{r.0}}">{{ r.0 }}</a>
