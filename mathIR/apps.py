@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
 
-class mathirConfig(AppConfig):
+class mathIRConfig(AppConfig):
     name = 'mathIR'

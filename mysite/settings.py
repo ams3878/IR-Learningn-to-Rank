@@ -32,7 +32,7 @@ ALLOWED_HOSTS = ["172.101.186.202",
 # Application definition
 
 INSTALLED_APPS = [
-    'mathIR.apps.mathirConfig'
+    'mathIR.apps.mathIRConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
