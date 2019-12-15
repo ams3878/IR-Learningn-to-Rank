@@ -1,8 +1,29 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from .custom_lib.indexer import index_collection
+from .custom_lib.utils import get_docs_index, get_index
+from .custom_lib.retrieval_algorithms import query
+import time
 
+DOC_INDEX = get_docs_index()
+FREQ_INDEX = get_index()
+ANCHOR_INDEX = get_index()
 def results(request):
+    t1 = time.time_ns()
+    terms = ["math", "maths", "mathematical", "mathematics", "modeling", "models", "model", "uses", "of", "use",
+             "useful", "usefulness"]
+
+    res1 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
+    res2 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
+    print(len(res))
+    for i in res[:10]:
+        print(i)
+
+
+
+
+
+
     context = {'results_header': "Your Search was interpeted as: F(x) = m * a",
                'terms_list': ['term1'],
                'result_dict': {"Newton's laws of motion": ["Second law:	In an inertial frame of reference, "
