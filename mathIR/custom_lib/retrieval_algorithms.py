@@ -95,11 +95,17 @@ def query_bm25(terms, index, doc_index, **kwargs):
     return doc_scores
 
 
-def query_svm(terms, index, doc_index, anchor_index, svm_model):
+def query_svm(terms, index, doc_index, anchor_index, svm_weights):
     doc_ids = list(doc_index.keys())
     features = get_features(terms, doc_ids, doc_index, index, anchor_index)
-    decisions = svm_model.decision_function(features)
-    doc_scores = [(doc_ids[x], doc_index[doc_ids[x]]['name'], decisions[x][2]) for x in range(0, len(doc_ids))]
+    doc_scores = score_docs(doc_ids, doc_index, features, svm_weights)
     doc_scores = sorted(doc_scores, key=lambda tup: tup[2], reverse=True)
-    print(doc_scores[:10])
     return doc_scores
+
+
+def score_docs(doc_ids, doc_index, features, svm_weights):
+    scores = []
+    for doc in range(0, len(doc_ids)):
+        doc_id = doc_ids[doc]
+        scores.append((doc_id, doc_index[doc_id]['name'], sum(x_i*y_i for x_i, y_i in zip(features[doc], svm_weights))))
+    return scores
