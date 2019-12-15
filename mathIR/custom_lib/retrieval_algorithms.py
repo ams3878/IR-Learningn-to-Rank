@@ -21,14 +21,16 @@ R = 0
 R_i = 0
 
 TRAINING_DATA_FILE_NAME = 'training_data.tsv'
+WEIGHT_VECTOR_FILE_NAME = 'svm_weights.tsv'
 
 
 def main():
     doc_index = get_docs_index()
     index = get_index()
     anchor_index = get_index(anchor=True)
-    with open('query_svm.svm', 'w') as w:
-        w.write(train_svm(doc_index, index, anchor_index))
+    train_svm(doc_index, index, anchor_index)
+
+
 # ---------------------------------------------------------------------------------
 # wrapper function to be called to get the related documents
 #
@@ -43,6 +45,7 @@ def query(terms, index, doc_index, anchor_index, svm_model, query_model, **kwarg
         return query_bm25(terms, index, doc_index, **kwargs)
     else:
         return query_svm(terms, index, doc_index, anchor_index, svm_model)
+
 
 def query_bm25_mod(terms, index, doc_index, **kwargs):
     term_counts = {}
@@ -224,9 +227,11 @@ def train_svm(doc_index, index, anchor_index):
             line = next_line
     svm_model = svm.LinearSVC(max_iter=2000)
     svm_model.fit(features, rels)
-    print(svm_model.coef_)
-    print(svm_model.score(features, rels))
-    return svm_model
+    relevant_weights = list(svm_model.coef_[2])
+    with open(WEIGHT_VECTOR_FILE_NAME, 'w') as weight_file:
+        csv.writer(weight_file, delimiter='\t').writerow(relevant_weights)
+
+    return relevant_weights
 
 
 def get_features(query_words, doc_ids, doc_index, index, anchor_index):
@@ -234,10 +239,11 @@ def get_features(query_words, doc_ids, doc_index, index, anchor_index):
     if len(doc_ids) < len(doc_index):
         bm25_results = query(query_words, anchor_index, doc_index, None, None, 'bm25', limit_to=doc_ids)
     else:
-        bm25_results = query(query_words, anchor_index, doc_index, None, None, 'bm25')
+        bm25_results =query(query_words, anchor_index, doc_index, None, None, 'bm25')
     results_dict = {}
     for result in bm25_results:
         results_dict[result[0]] = result
+    num_query_terms = len(query_words)
     for doc in range(0, len(doc_ids)):
         doc_id = doc_ids[doc]
         if doc_id in results_dict:
@@ -249,8 +255,8 @@ def get_features(query_words, doc_ids, doc_index, index, anchor_index):
             if term in index:
                 features[doc][3] += get_term_frequency(term, index, doc_id)
                 features[doc][4] += index[term]['idf']
-        features[doc][3] /= len(query_words)
-        features[doc][4] /= len(query_words)
+        features[doc][3] /= num_query_terms
+        features[doc][4] /= num_query_terms
     return features
 
 
