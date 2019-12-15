@@ -16,16 +16,15 @@ import string
 import csv
 import unicodedata
 
-from math import ceil
 from nltk.tokenize import word_tokenize
 
-INDEX_DIR = 'indices'
+INDEX_DIR = 'E:\_Projects\IR_P3\mysite\mathIR\static\idexTSV'
 INDEX_FILENAME = 'wiki_index.tsv'
 DOC_INDEX_FILENAME = 'doc_index.tsv'
 LINKED_FROM_INDEX_FILENAME = 'linked_from_index.tsv'
 PAGE_RANK_INDEX_FILENAME = 'page_rank_index.tsv'
 ANCHOR_TEXT_INDEX_FILENAME = 'anchor_text_index.tsv'
-
+STEM_FILE_NAME = "wiki_stems.tsv"
 
 PAGE_RANK_PARAM = 0.15
 
@@ -148,9 +147,9 @@ def get_bigrams(filename):
 # @input: filename: tsv of frequencies
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_index(**kwargs):
+def get_index(anchor=False):
     index = {}
-    if 'anchor' in kwargs and kwargs['anchor']:
+    if anchor:
         filename = os.path.join(INDEX_DIR, ANCHOR_TEXT_INDEX_FILENAME)
     else:
         filename = os.path.join(INDEX_DIR, INDEX_FILENAME)
@@ -254,7 +253,7 @@ def get_docs_index():
 # ---------------------------------------------------------------------------------
 def get_stems(filename):
     stems = {}
-    with open('ponyportal\static\ponyportal\\' + filename, 'r') as stem_file:
+    with open(os.path.join(INDEX_DIR, filename), 'r') as stem_file:
         line = stem_file.readline()
         while line:
             line = line.split('\t')

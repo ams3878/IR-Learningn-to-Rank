@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from .custom_lib.indexer import index_collection, create_stems
 from .custom_lib.utils import get_docs_index, get_index, get_stems
 from .custom_lib.retrieval_algorithms import query
-from .custom_lib.retrieval_algorithms import main as ra_main
+from .custom_lib.query_expansion import expand_term
 
 import time
 
@@ -20,13 +20,14 @@ except FileNotFoundError:
 
 def results(request):
     t1 = time.time_ns()
-    terms = ["math", "maths", "mathematical", "mathematics", "modeling", "models", "model", "uses", "of", "use",
+    term_str = "uses of mathematical modeling"
+    terms_in = term_str.splti()
+
+    expanded_terms = expand_term(terms_in, STEM_DICT)
+    terms_out = ["math", "maths", "mathematical", "mathematics", "modeling", "models", "model", "uses", "of", "use",
              "useful", "usefulness"]
-    ra_main()
-    for i in STEM_DICT:
-        print(i)
-    res1 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, ANCHOR_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
-    res2 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, ANCHOR_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
+    res1 = sorted(query(expanded_terms, FREQ_INDEX, DOC_INDEX, ANCHOR_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
+    res2 = sorted(query(expanded_terms, FREQ_INDEX, DOC_INDEX, ANCHOR_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
     print(len(res1))
     for i in res1[:10]:
         print(i)
