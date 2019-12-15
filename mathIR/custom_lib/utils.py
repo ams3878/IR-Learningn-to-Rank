@@ -11,23 +11,33 @@ utils.py
 """
 
 import re
-import string
 import os
+import string
 import csv
+import unicodedata
+
 from math import ceil
-from ..models import *
 from nltk.tokenize import word_tokenize
 
-COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
-INDEX_DIR = "mathIR\static\mathIR"
-DOC_INDEX_FILE_NAME = "doc_index.tsv"
-INDEX_FILE_NAME = "wiki_index.tsv"
-STEM_FILE_NAME = "wiki_stems.tsv"
-POSITIONAL_INDEX_FILE_NAME = "wiki_positions.tsv"
-BIGRAM_INDEX_FILE_NAME = "wiki_bigrams.tsv"
-LINKED_FROM_INDEX_FILE_NAME = "linked_from_index.tsv"
-PAGE_RANK_INDEX = 'page_rank_index.tsv'
+INDEX_DIR = 'indices'
+INDEX_FILENAME = 'wiki_index.tsv'
+DOC_INDEX_FILENAME = 'doc_index.tsv'
+LINKED_FROM_INDEX_FILENAME = 'linked_from_index.tsv'
+PAGE_RANK_INDEX_FILENAME = 'page_rank_index.tsv'
+ANCHOR_TEXT_INDEX_FILENAME = 'anchor_text_index.tsv'
+
+
 PAGE_RANK_PARAM = 0.15
+
+
+def get_translation_dict():
+    punctuation_dict = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
+    punctuation_dict[ord('\'')] = ''
+    return punctuation_dict
+
+
+TRANSLATION_DICT = get_translation_dict()
+
 
 def rank_pages(doc_index):
     page_count = len(doc_index)
@@ -64,7 +74,7 @@ def rank_pages(doc_index):
         print(err)
         prev_ranks = new_ranks
 
-    fn = PAGE_RANK_INDEX
+    fn = PAGE_RANK_INDEX_FILENAME
     with open(fn, 'w', newline='', encoding='utf-8') as output_file:
         writer = csv.writer(output_file, delimiter='\t')
         for key in docs_to_index:
@@ -72,29 +82,27 @@ def rank_pages(doc_index):
             writer.writerow(line)
     return new_ranks
 
+
 def vector_diff(v1, v2):
     if len(v1) != len(v2):
-        return 'nani'
+        return 'this shouldnt happen'
     diff = 0
     for ind in range(0, len(v1)):
         diff += abs(v1[ind] - v2[ind])
     return diff
 
-def get_translation_dict():
-    punctuation_dict = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
-    punctuation_dict[ord('\'')] = ''
-    return punctuation_dict
+
+
 
 # ---------------------------------------------------------------------------------
 # create an index from a tsv with the position of words in the document
 #
-# @input: none
+# @input: filename: tsv of positions
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_pos_index():
+def get_pos_index(filename):
     index = {}
-    fn = os.path.join(INDEX_DIR, POSITIONAL_INDEX_FILE_NAME)
-    with open(fn, 'r', encoding='utf-8') as index_file:
+    with open('ponyportal\static\ponyportal\\' + filename, 'r') as index_file:
         line = index_file.readline()
         while line:
             line = line.split('\t')
@@ -115,13 +123,12 @@ def get_pos_index():
 # ---------------------------------------------------------------------------------
 # create an index from a tsv with all the bigrams in the document
 #
-# @input: none
+# @input: filename: tsv of bigrams
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_bigrams():
+def get_bigrams(filename):
     index = {}
-    fn = os.path.join(INDEX_DIR, BIGRAM_INDEX_FILE_NAME)
-    with open(fn, 'r', encoding='utf-8') as index_file:
+    with open('ponyportal\static\ponyportal\\' + filename, 'r') as index_file:
         line = index_file.readline()
         while line:
             line = line.split('\t')
@@ -141,24 +148,57 @@ def get_bigrams():
 # @input: filename: tsv of frequencies
 # @output: index: dictionary
 # ---------------------------------------------------------------------------------
-def get_index():
+def get_index(**kwargs):
     index = {}
-    filename = os.path.join(INDEX_DIR, INDEX_FILE_NAME)
-    with open(filename, 'r') as index_file:
-        for line in index_file:
+    if 'anchor' in kwargs and kwargs['anchor']:
+        filename = os.path.join(INDEX_DIR, ANCHOR_TEXT_INDEX_FILENAME)
+    else:
+        filename = os.path.join(INDEX_DIR, INDEX_FILENAME)
+
+    with open(filename, 'r', encoding='utf-8') as index_file:
+        line = index_file.readline()
+        while line:
             line = line.split('\t')
-            posting_list = line[2:]
-            posting_dict = {}
+            posting_list = line[3:]
+            posting_dict = {'docs': {}}
             for posting in posting_list:
                 posting = posting.split(':')
-                posting_dict[posting[0]] =  int(posting[1])
+                posting_dict['docs'][posting[0]] = int(posting[1])
+            posting_dict['count'] = int(line[2])
+            posting_dict['idf'] = float(line[1])
             index[line[0]] = posting_dict
+
+            line = index_file.readline()
     return index
 
 
+# ---------------------------------------------------------------------------------
+# create an index from a tsv with the frequcency of words in  document windows
+# window size is set to be one line
+# @input: None
+# @output: index: dictionary
+# ---------------------------------------------------------------------------------
+# def get_window_index():
+#     index = {}
+#     with open(WINDOW_INDEX_FILENAME, 'r') as index_file:
+#         line = index_file.readline()
+#         while line:
+#             line = line.split('\t')
+#             posting_list = line[2:]
+#             posting_dict = {'count': int(line[1])}
+#             for posting in posting_list:
+#                 posting = posting.split(':')
+#                 if posting[0] not in posting_dict:
+#                     posting_dict[posting[0]] = []
+#                 posting_dict[posting[0]].append(int(posting[1]))
+#             index[line[0]] = posting_dict
+#
+#             line = index_file.readline()
+#     return index
+
 
 # ---------------------------------------------------------------------------------
-# create an index from a tsv mapping episode number to title, word count
+# create an index from a tsv mapping episdoe number to title, word count
 # and line count
 #
 # @input: None
@@ -166,29 +206,42 @@ def get_index():
 # ---------------------------------------------------------------------------------
 def get_docs_index():
     doc_index = {}
-    filename = os.path.join(INDEX_DIR, DOC_INDEX_FILE_NAME)
+    filename = os.path.join(INDEX_DIR, DOC_INDEX_FILENAME)
     with open(filename, 'r', encoding='utf-8') as doc_file:
-        for line in doc_file:
-            line = line[:-1]
-            split_line = line.split('\t')
-            doc_index[split_line[0]] = {
-                'title' : split_line[1],
-                'name' : split_line[2],
-                'words' : int(split_line[3]),
-                'links' : int(split_line[4]),
-                'links_to' : [],
-                'linked_from' : []
-            }
-            if int(split_line[4]) > 0:
-                doc_index[split_line[0]]['links_to'] = split_line[5:]
+        line = doc_file.readline()[:-1]
+        while line:
+            line = line.split('\t')
+            if line[0] in doc_index:
+                print(line)
+            try:
+                doc_index[line[0]] = {
+                    'title' : line[1],
+                    'name' : line[2],
+                    'words' : int(line[3]),
+                    'links' : int(line[4]),
+                    'links_to' : [],
+                    'linked_from' : []
+                }
+                if int(line[4]) > 0:
+                    doc_index[line[0]]['links_to'] = line[5:]
+            except IndexError:
+                print(line)
+            line = doc_file.readline()[:-1]
 
-    filename = os.path.join(INDEX_DIR, LINKED_FROM_INDEX_FILE_NAME)
+    filename = os.path.join(INDEX_DIR, LINKED_FROM_INDEX_FILENAME)
     with open(filename, 'r', encoding='utf-8') as link_file:
-        for line in link_file:
-            line = line[:-1]
-            split_line = line.split('\t')
-            for doc in split_line[2:]:
+        line = link_file.readline()[:-1]
+        while line:
+            line = line.split('\t')
+            for doc in line[2:]:
                 doc_index[line[0]]['linked_from'].append(doc)
+            line = link_file.readline()[:-1]
+
+    filename = os.path.join(INDEX_DIR, PAGE_RANK_INDEX_FILENAME)
+    with open(filename, 'r', encoding='utf-8') as rank_file:
+        for line in rank_file:
+            line = line.split('\t')
+            doc_index[line[0]]['page_rank'] = float(line[1])
 
     return doc_index
 
@@ -199,14 +252,17 @@ def get_docs_index():
 # @input: filename: tsv of stems
 # @output: stems: dictionary
 # ---------------------------------------------------------------------------------
-def get_stems():
+def get_stems(filename):
     stems = {}
-    filename = os.path.join(INDEX_DIR, STEM_FILE_NAME)
-    with open(filename, 'r', encoding='utf-8') as stem_file:
-        for line in stem_file:
+    with open('ponyportal\static\ponyportal\\' + filename, 'r') as stem_file:
+        line = stem_file.readline()
+        while line:
             line = line.split('\t')
             stems[line[0]] = line[1:-1]
+            line = stem_file.readline()
     return stems
+
+
 
 # ---------------------------------------------------------------------------------
 # Creates document summaries for each related document and highlights
@@ -218,7 +274,6 @@ def get_stems():
 #         episode: number of the episode used to get the raw html
 # @return: matched_lines: top 5 of line of the doc sum
 # ---------------------------------------------------------------------------------
-# TODO refactor this to work with tar files
 def get_lines_keywords(terms, idf_list, episode):
     f = open('ponyportal\static\episodes\\' + str(episode), 'r')
     stopword_list = get_stopwords()
@@ -233,8 +288,7 @@ def get_lines_keywords(terms, idf_list, episode):
     matched_lines_stop = []
     term_regex = re.compile('(.*)([\W\s])(' + '|'.join(terms_dict.keys()) + ')([\W\s])(.*)', re.IGNORECASE)
     term_regex_stop = re.compile('(.*)([\W\s])(' + '|'.join(stop_dict.keys()) + ')([\W\s])(.*)', re.IGNORECASE)
-    # skip the meta line
-    f.readline()
+
     for line in f:
         line_list = line
         line_list = line_list.lower().translate(str.maketrans('', '', string.punctuation)).split()
@@ -265,7 +319,7 @@ def get_lines_keywords(terms, idf_list, episode):
 # calculate the dice coefficient of two terms
 #
 # @input: term1: list of documents that contain the first term
-#         term2: list of documents that contain the second term
+#         term2L list of ducuments that contain the second term
 # @output: float: dice coefficient
 # ---------------------------------------------------------------------------------
 def get_dice_coeff(term1, term2):
@@ -317,10 +371,14 @@ def get_levenshtein_distance(term1, term2):
 # @input: doc: string to clean
 # @return: doc: the cleaned string
 # ---------------------------------------------------------------------------------
-def clean_text(doc):
-    doc = doc.lower()
-    doc = doc.translate(str.maketrans('', '', string.punctuation))
-    return doc
+def clean_text(doc_text):
+    text = doc_text.lower().translate(TRANSLATION_DICT)
+    try:
+        text = remove_accents(text)
+    except UnicodeEncodeError:
+        print(doc_text)
+
+    return str(text)
 
 
 # ---------------------------------------------------------------------------------
@@ -329,16 +387,12 @@ def clean_text(doc):
 # @input: doc: string to create tokens from
 # @return: doc_index: a dictionary of tokens and their frequency
 # ---------------------------------------------------------------------------------
-def tokenize_doc(doc):
-    tokens = word_tokenize(doc)
-    doc_index = {}
-    for token in tokens:
-        if token in doc_index:
-            doc_index[token] += 1
+def tokenize_doc(doc_words, index):
+    for token in doc_words:
+        if token in index:
+            index[token] += 1
         else:
-            doc_index[token] = 1
-    return doc_index
-
+            index[token] = 1
 
 # ---------------------------------------------------------------------------------
 # Get stop words from file
@@ -374,3 +428,20 @@ def get_stop_words():
             'did', 'not', 'now', 'under', 'he', 'you', 'herself', 'has', 'just', 'where', 'too', 'only', 'myself',
             'which', 'those', 'i', 'after', 'few', 'whom', 't', 'being', 'if', 'theirs', 'my', 'against', 'a', 'by',
             'doing', 'it', 'how', 'further', 'was', 'here', 'than', 'get']
+
+
+def remove_accents(text):
+    text = unicodedata.normalize('NFD', text).encode('ascii',  "namereplace").decode("utf-8",  "namereplace")
+    return text
+
+
+def format_text(doc_text):
+    doc_text = clean_text(doc_text)
+    doc_words = word_tokenize(doc_text)
+    doc_text = []
+
+    for word in doc_words:
+        word = word.strip()
+        if word:
+            doc_text.append(word)
+    return doc_text
