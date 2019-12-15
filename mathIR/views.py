@@ -1,5 +1,6 @@
 from django.shortcuts import render
-
+from django.http import HttpResponse
+from .custom_lib.indexer import index_collection
 
 def results(request):
     context = {'results_header': "Your Search was interpeted as: F(x) = m * a",
@@ -29,3 +30,8 @@ def results(request):
 def home(request):
     context = {}
     return render(request, 'home/home.html', context)
+
+
+def main(request):
+    #index_collection()
+    return HttpResponse('Running Main')

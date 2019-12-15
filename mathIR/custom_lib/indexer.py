@@ -18,7 +18,7 @@ from .utils import get_index, clean_text, tokenize_doc, get_translation_dict
 from .porter import PorterStemmer
 
 COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
-INDEX_DIR = "mathIR\static\mathIR"
+INDEX_DIR = "mathIR\static\indexTSV"
 DOC_FILE_NAME = "doc_index.tsv"
 INDEX_FILE_NAME = "wiki_index.tsv"
 STEM_FILE_NAME = "wiki_stems.tsv"

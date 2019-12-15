@@ -39,7 +39,7 @@ def query(terms, index, doc_index, query_model):
 # @return: doc_scores: list tuples(documents,score)
 # ---------------------------------------------------------------------------------
 def query_bm25(terms, index, doc_index):
-    term_counts ={}
+    term_counts = {}
     for term in terms:
         if term in term_counts:
             term_counts[term] += 1
