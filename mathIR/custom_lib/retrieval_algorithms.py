@@ -21,6 +21,14 @@ R = 0
 R_i = 0
 
 TRAINING_DATA_FILE_NAME = 'training_data.tsv'
+
+
+def main():
+    doc_index = get_docs_index()
+    index = get_index()
+    anchor_index = get_index(anchor=True)
+    with open('query_svm.svm', 'w') as w:
+        w.write(train_svm(doc_index, index, anchor_index))
 # ---------------------------------------------------------------------------------
 # wrapper function to be called to get the related documents
 #
@@ -35,7 +43,6 @@ def query(terms, index, doc_index, anchor_index, svm_model, query_model, **kwarg
         return query_bm25(terms, index, doc_index, **kwargs)
     else:
         return query_svm(terms, index, doc_index, anchor_index, svm_model)
-
 
 def query_bm25_mod(terms, index, doc_index, **kwargs):
     term_counts = {}
@@ -262,3 +269,7 @@ def similarity(query_words, doc_title):
         if word in doc_title_words:
             num_in_title += 1
     return num_in_title/len(query_words)
+
+
+if __name__ == '__main__':
+    main()
