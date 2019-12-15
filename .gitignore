@@ -2,4 +2,6 @@ migrations/
 collectionDocs/
 MathTagArticles/
 index_backup/
+TextArticles/
 .bz2
+.tsv
