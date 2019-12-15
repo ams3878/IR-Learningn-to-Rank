@@ -1,22 +1,34 @@
 from django.shortcuts import render
 from django.http import HttpResponse
-from .custom_lib.indexer import index_collection
-from .custom_lib.utils import get_docs_index, get_index
+from .custom_lib.indexer import index_collection, create_stems
+from .custom_lib.utils import get_docs_index, get_index, get_stems
 from .custom_lib.retrieval_algorithms import query
+from .custom_lib.retrieval_algorithms import main as ra_main
+
 import time
 
 DOC_INDEX = get_docs_index()
 FREQ_INDEX = get_index()
-ANCHOR_INDEX = get_index()
+ANCHOR_INDEX = get_index(anchor=True)
+# Stems
+try:
+    STEM_DICT = get_stems('wiki_stems.tsv')
+except FileNotFoundError:
+    print('wiki_stems.tsv not found creating...')
+    create_stems(FREQ_INDEX)
+    STEM_DICT = get_stems('wiki_stems.tsv')
+
 def results(request):
     t1 = time.time_ns()
     terms = ["math", "maths", "mathematical", "mathematics", "modeling", "models", "model", "uses", "of", "use",
              "useful", "usefulness"]
-
-    res1 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
-    res2 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
-    print(len(res))
-    for i in res[:10]:
+    ra_main()
+    for i in STEM_DICT:
+        print(i)
+    res1 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, ANCHOR_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
+    res2 = sorted(query(terms, FREQ_INDEX, DOC_INDEX, ANCHOR_INDEX, '', "bm25"), key=lambda x: x[2], reverse=True)
+    print(len(res1))
+    for i in res1[:10]:
         print(i)
 
 

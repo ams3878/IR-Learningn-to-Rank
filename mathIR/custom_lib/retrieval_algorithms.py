@@ -30,8 +30,7 @@ R_i = 0
 #         query_model: string to specify retrieval algorithm to use
 # @return: list of documents(some variation based on algorithm)
 # ---------------------------------------------------------------------------------
-def query(terms, index, doc_index, svm_model, query_model, **kwargs):
-    anchor_index = doc_index
+def query(terms, index, doc_index, anchor_index,  svm_model, query_model, **kwargs):
     if query_model == 'bm25':
         return query_bm25(terms, index, doc_index, **kwargs)
     else:
@@ -167,7 +166,8 @@ def main():
     doc_index = get_docs_index()
     index = get_index()
     anchor_index = get_index(anchor=True)
-    train_svm(doc_index, index, anchor_index)
+    with open('query_svm.svm', 'w') as w:
+        w.write(train_svm(doc_index, index, anchor_index))
 
 
 def make_training_data_file():
