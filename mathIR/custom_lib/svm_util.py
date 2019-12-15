@@ -8,6 +8,7 @@ from sklearn import svm
 
 
 TRAINING_DATA_FILE_NAME = 'training_data.tsv'
+SVM_RESULTS_FILE_NAME = 'weight_vector.tsv'
 
 
 def main():
@@ -67,9 +68,11 @@ def train_svm(doc_index, index, anchor_index):
             line = next_line
     svm_model = svm.LinearSVC(max_iter=2000)
     svm_model.fit(features, rels)
-    print(svm_model.coef_)
-    print(svm_model.score(features, rels))
-    return svm_model
+    relevant_weights = list(svm_model.coef_[2])
+    with open(SVM_RESULTS_FILE_NAME, 'w') as weight_file:
+        csv.writer(weight_file, delimiter='\t').writerow(relevant_weights)
+
+    return relevant_weights
 
 
 def get_features(query_words, doc_ids, doc_index, index, anchor_index):
@@ -81,6 +84,7 @@ def get_features(query_words, doc_ids, doc_index, index, anchor_index):
     results_dict = {}
     for result in bm25_results:
         results_dict[result[0]] = result
+    num_query_terms = len(query_words)
     for doc in range(0, len(doc_ids)):
         doc_id = doc_ids[doc]
         if doc_id in results_dict:
@@ -92,8 +96,8 @@ def get_features(query_words, doc_ids, doc_index, index, anchor_index):
             if term in index:
                 features[doc][3] += get_term_frequency(term, index, doc_id)
                 features[doc][4] += index[term]['idf']
-        features[doc][3] /= len(query_words)
-        features[doc][4] /= len(query_words)
+        features[doc][3] /= num_query_terms
+        features[doc][4] /= num_query_terms
     return features
 
 

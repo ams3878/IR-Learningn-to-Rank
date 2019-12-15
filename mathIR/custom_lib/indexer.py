@@ -1,15 +1,11 @@
-import re
 import os
 import string
-import codecs
-import unicodedata
 import time
 import csv
 import tarfile
 import math
 
 from bs4 import BeautifulSoup
-from nltk.tokenize import word_tokenize
 from .utils import tokenize_doc, clean_text, format_text
 from .porter import PorterStemmer
 
@@ -106,7 +102,7 @@ def index_collection():
                         anchor_text_index[token] = []
                     anchor_text_index[token].append(index_str)
 
-                doc_file_line = [doc_id, doc_title, doc_name, len(words), len(links_out)]
+                doc_file_line = [doc_id, doc_title, doc_name, len(words)]
                 for link in links_out:
                     doc_file_line.append(link)
                 doc_file_lines.append(doc_file_line)
@@ -117,10 +113,14 @@ def index_collection():
     with open(fn, 'w', newline='', encoding='utf-8') as doc_file:
         writer = csv.writer(doc_file, delimiter="\t")
         for file in doc_file_lines:
-            new_line = file[:5]
-            for link in file[5:]:
+            new_line = file[:4]
+            linked_docs = []
+            for link in file[4:]:
                 if link in doc_ids:
-                    new_line.append(doc_ids[link])
+                    linked_docs.append(doc_ids[link])
+            new_line.append(len(linked_docs))
+            for link in linked_docs:
+                new_line.append(link)
             writer.writerow(new_line)
 
     doc_count = len(doc_file_lines)
@@ -130,7 +130,7 @@ def index_collection():
         for key in sorted(index.keys()):
             docs = index[key]
             num_docs = len(docs)
-            idf = round(math.log(doc_count/num_docs), 8)
+            idf = math.log(doc_count/num_docs)
             line = [key, idf, num_docs]
             for doc in docs:
                 line.append(doc)
@@ -142,7 +142,7 @@ def index_collection():
         for key in sorted(anchor_text_index.keys()):
             docs = anchor_text_index[key]
             num_docs = len(docs)
-            idf = round(math.log(doc_count/num_docs), 8)
+            idf = math.log(doc_count/num_docs)
             line = [key, idf, num_docs]
             for doc in docs:
                 line.append(doc)

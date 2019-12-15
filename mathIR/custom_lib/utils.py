@@ -14,18 +14,16 @@ import re
 import os
 import string
 import csv
-import unicodedata
-
-from math import ceil
+from unidecode import unidecode
 from nltk.tokenize import word_tokenize
 
-INDEX_DIR = 'indices'
+INDEX_DIR = 'mathIR/static/mathIR'
 INDEX_FILENAME = 'wiki_index.tsv'
 DOC_INDEX_FILENAME = 'doc_index.tsv'
 LINKED_FROM_INDEX_FILENAME = 'linked_from_index.tsv'
 PAGE_RANK_INDEX_FILENAME = 'page_rank_index.tsv'
 ANCHOR_TEXT_INDEX_FILENAME = 'anchor_text_index.tsv'
-
+SVM_RESULTS_FILE_NAME = 'svm_weights'
 
 PAGE_RANK_PARAM = 0.15
 
@@ -92,6 +90,14 @@ def vector_diff(v1, v2):
     return diff
 
 
+def get_svm_weights():
+    weights = []
+    fn = SVM_RESULTS_FILE_NAME
+    with open(fn, 'r') as svm_file:
+        line = svm_file.readline()
+        for weight in line.split('\t'):
+            weights.append(float(weight))
+    return weights
 
 
 # ---------------------------------------------------------------------------------
@@ -431,8 +437,7 @@ def get_stop_words():
 
 
 def remove_accents(text):
-    text = unicodedata.normalize('NFD', text).encode('ascii',  "namereplace").decode("utf-8",  "namereplace")
-    return text
+    return unidecode(text)
 
 
 def format_text(doc_text):
