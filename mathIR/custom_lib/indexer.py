@@ -7,9 +7,10 @@ import math
 
 from bs4 import BeautifulSoup
 from .utils import tokenize_doc, clean_text, format_text
+from .porter import PorterStemmer
 
 COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
-INDEX_DIR = "mathIR\static\mathIR"
+INDEX_DIR = "mathIR\static\indexTSV"
 DOC_FILE_NAME = "doc_index.tsv"
 INDEX_FILE_NAME = "wiki_index.tsv"
 STEM_FILE_NAME = "wiki_stems.tsv"
@@ -22,49 +23,32 @@ LINKED_FROM_INDEX = 'indices/linked_from_index.tsv'
 WINDOW_SIZE = 25
 
 
-def main():
-    index_collection()
+# ---------------------------------------------------------------------------------
+# creates tsv of stems, only stems with more than one associated words are stored
+# used the porter stemmer to create the stems
+#
+# @input: index_tsv: the tsv of word frequencies
+# @return: None
+# ---------------------------------------------------------------------------------
 
-# def create_window_index_tsv():
-#     index = {}
-#     for filename in os.listdir(COLLECTION_DIR):
-#         if filename.endswith(".tar.bz2"):
-#             dir_name = str(int(filename[7:-8]))
-#             formatted_filename = os.path.join(COLLECTION_DIR, filename)
-#             tar = tarfile.open(formatted_filename, 'r:bz2')
-#             for file in tar:
-#                 if not file.name.endswith('.html'):
-#                     continue
-#
-#                 html_file = tar.extractfile(file)
-#                 content = html_file.read()
-#                 soup = BeautifulSoup(content, 'html.parser')
-#
-#                 doc_id = dir_name + '-' + soup.title['offset']
-#                 doc_index = {}
-#                 clean_soup(soup, doc_index)
-#                 doc_text = soup.get_text()
-#                 words = format_doc(doc_text)
-#                 window = 0
-#                 for word_index in range(0, len(words), WINDOW_SIZE):
-#                     max_ind = word_index + WINDOW_SIZE
-#                     if max_ind >= len(words):
-#                         max_ind = len(words)
-#                     doc_index = {}
-#                     index_doc(' '.join(words[word_index:max_ind]), doc_index)
-#                     for token in doc_index:
-#                         index_str = doc_id + ':' + str(window)
-#                         if token not in index:
-#                             index[token] = index_str
-#                         else:
-#                             index[token] += ('\t' + index_str)
-#                     window += 1
-#
-#     # Write index to a file
-#     with open(WINDOW_INDEX_FILE_NAME, 'w') as output_file:
-#         for key in sorted(index.keys()):
-#             line = "%s\t%d\t%s\n" % (key, len(index[key].split('\t')), index[key])
-#             output_file.write(line)
+def create_stems(freq_index):
+    vocab = list(freq_index.keys())
+    stemmer = PorterStemmer()
+    stems = [stemmer.stem(word) for word in vocab]
+    stem_dict = {}
+    for i in range(len(stems)):
+        try:
+            stem_dict[stems[i]].append(vocab[i])
+        except KeyError:
+            stem_dict[stems[i]] = [vocab[i]]
+    with open(STEM_FILE_NAME, 'w') as f:
+        for stem, word_list in sorted(stem_dict.items()):
+            if len(word_list) > 1:
+                line = "/" + stem
+                for word in word_list:
+                    line = line + "\t" + word
+                line = line + "\t\n"
+                f.write(line)
 
 
 def index_collection():
@@ -235,7 +219,3 @@ def clean_soup(soup, formula_index, anchor_text_index):
             thing.string.replace_with('')
 
     return links_out
-
-
-if __name__ == "__main__":
-    main()
