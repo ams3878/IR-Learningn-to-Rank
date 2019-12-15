@@ -7,6 +7,7 @@ retrieval_algorithms.py
 """
 import math
 
+from svm_util import get_features
 # -----
 # BM25 parameters
 # -----
@@ -26,9 +27,12 @@ R_i = 0
 #         query_model: string to specify retrieval algorithm to use
 # @return: list of documents(some variation based on algorithm)
 # ---------------------------------------------------------------------------------
-def query(terms, index, doc_index, query_model):
+def query(terms, index, doc_index, anchor_index, svm_model, query_model, **kwargs):
     if query_model == 'bm25':
-        return query_bm25(terms, index, doc_index)
+        return query_bm25(terms, index, doc_index, **kwargs)
+    else:
+        return query_svm(terms, index, doc_index, anchor_index, svm_model)
+
 
 # ---------------------------------------------------------------------------------
 # get list of documents using BM25 to rank
@@ -38,7 +42,8 @@ def query(terms, index, doc_index, query_model):
 #         doc_index: dictionary for word and line count
 # @return: doc_scores: list tuples(documents,score)
 # ---------------------------------------------------------------------------------
-def query_bm25(terms, index, doc_index):
+
+def query_bm25(terms, index, doc_index, **kwargs):
     term_counts = {}
     for term in terms:
         if term in term_counts:
@@ -49,14 +54,14 @@ def query_bm25(terms, index, doc_index):
     avg_dl = 0.0
     doc_scores = {}
     for doc in doc_index:
-        avg_dl += float(doc_index[doc][1])
+        avg_dl += float(doc_index[doc]['words'])
 
     avg_dl /= len(doc_index)
     n = len(doc_index)
 
     doc_k = {}
     for doc in doc_index:
-        doc_k[doc] = K_1*((1 - B) + B * (float(doc_index[doc][1])/avg_dl))
+        doc_k[doc] = K_1*((1 - B) + B * (float(doc_index[doc]['words'])/avg_dl))
 
     for term in term_counts:
         try:
@@ -64,8 +69,9 @@ def query_bm25(terms, index, doc_index):
             n_i = float(index_entry['count'])
         except KeyError:
             continue
-        #term_weight = math.log(((R_i + 0.5)/(R - R_i + 0.5))/((n_i - R_i + 0.5)/(n - n_i - R + R_i + 0.5)), 10)
-        term_weight = math.log(n / n_i, 10)
+        term_weight = math.log(((R_i + 0.5)/(R - R_i + 0.5))/((n_i - R_i + 0.5)/(n - n_i - R + R_i + 0.5)), 10)
+        if term_weight < -0.25:
+            term_weight = -0.25
         query_term_weight = ((K_2 + 1)*term_counts[term])/(K_2 + term_counts[term])
 
         try:
@@ -79,6 +85,22 @@ def query_bm25(terms, index, doc_index):
 
         except KeyError:
             continue
-    doc_scores = [(doc, doc_index[doc][0], doc_scores[doc]) for doc in doc_scores]
+    doc_scores = [(doc, doc_index[doc]['name'], doc_scores[doc]) for doc in doc_scores]
+    if 'limit_to' in kwargs:
+        limited_scores = []
+        for doc in doc_scores:
+            if doc[0] in kwargs['limit_to']:
+                limited_scores.append(doc)
+        doc_scores = limited_scores
     doc_scores = sorted(doc_scores, key=lambda tup: tup[2], reverse=True)
-    return doc_scores[:10]
+    return doc_scores
+
+
+def query_svm(terms, index, doc_index, anchor_index, svm_model):
+    doc_ids = list(doc_index.keys())
+    features = get_features(terms, doc_ids, doc_index, index, anchor_index)
+    decisions = svm_model.decision_function(features)
+    doc_scores = [(doc_ids[x], doc_index[doc_ids[x]]['name'], decisions[x][2]) for x in range(0, len(doc_ids))]
+    doc_scores = sorted(doc_scores, key=lambda tup: tup[2], reverse=True)
+    print(doc_scores[:10])
+    return doc_scores
