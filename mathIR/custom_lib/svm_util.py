@@ -1,7 +1,8 @@
 import os
 import csv
 import math
-from .retrieval_algorithms import query
+import sys
+
 from .utils import get_index, get_docs_index, format_text
 from sklearn import svm
 
