@@ -40,14 +40,16 @@ def main():
 #         query_model: string to specify retrieval algorithm to use
 # @return: list of documents(some variation based on algorithm)
 # ---------------------------------------------------------------------------------
-def query(terms, index, doc_index, anchor_index, svm_model, query_model, **kwargs):
+def query(terms, index, doc_index, anchor_index, svm_model, query_model, doc_index_terms=False, **kwargs):
     if query_model == 'bm25':
         return query_bm25(terms, index, doc_index, **kwargs)
+    elif query_model == 'bm25mod':
+        return query_bm25_mod(terms, index, doc_index, doc_index_terms, **kwargs)
     else:
         return query_svm(terms, index, doc_index, anchor_index, svm_model)
 
 
-def query_bm25_mod(terms, index, doc_index, **kwargs):
+def query_bm25_mod(terms, index, doc_index, doc_lists_terms, **kwargs):
     term_counts = {}
     for term in terms:
         if term in term_counts:
@@ -64,6 +66,7 @@ def query_bm25_mod(terms, index, doc_index, **kwargs):
     n = len(doc_index)
 
     doc_k = {}
+    #SCORES ALL DOCUMENTS IN DOC INDEX
     for doc in doc_index:
         doc_k[doc] = K_1 * ((1 - B) + B * (float(doc_index[doc]['words']) / avg_dl))
 
@@ -157,7 +160,6 @@ def query_bm25(terms, index, doc_index, **kwargs):
             if doc[0] in kwargs['limit_to']:
                 limited_scores.append(doc)
         doc_scores = limited_scores
-    doc_scores = sorted(doc_scores, key=lambda tup: tup[2], reverse=True)
     return doc_scores
 
 
@@ -165,7 +167,6 @@ def query_svm(terms, index, doc_index, anchor_index, svm_weights):
     doc_ids = list(doc_index.keys())
     features = get_features(terms, doc_ids, doc_index, index, anchor_index)
     doc_scores = score_docs(doc_ids, doc_index, features, svm_weights)
-    doc_scores = sorted(doc_scores, key=lambda tup: tup[2], reverse=True)
     return doc_scores
 
 

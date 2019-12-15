@@ -28,7 +28,7 @@ LINKED_FROM_INDEX_FILENAME = 'linked_from_index.tsv'
 PAGE_RANK_INDEX_FILENAME = 'page_rank_index.tsv'
 ANCHOR_TEXT_INDEX_FILENAME = 'anchor_text_index.tsv'
 STEM_FILE_NAME = "wiki_stems.tsv"
-SVM_RESULTS_FILE_NAME = 'svm_weights'
+SVM_RESULTS_FILE_NAME = 'svm_weights.tsv'
 
 PAGE_RANK_PARAM = 0.15
 
@@ -97,7 +97,7 @@ def vector_diff(v1, v2):
 
 def get_svm_weights():
     weights = []
-    fn = SVM_RESULTS_FILE_NAME
+    fn = os.path.join(INDEX_DIR, SVM_RESULTS_FILE_NAME)
     with open(fn, 'r') as svm_file:
         line = svm_file.readline()
         for weight in line.split('\t'):
