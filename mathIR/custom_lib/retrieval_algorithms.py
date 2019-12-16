@@ -66,8 +66,8 @@ def query_bm25_mod(terms, index, doc_index, doc_lists_terms, **kwargs):
     n = len(doc_index)
 
     doc_k = {}
-    #SCORES ALL DOCUMENTS IN DOC INDEX
-    for doc in doc_index:
+    #SCORES Only conjunctive DOCUMENTS IN DOC INDEX
+    for doc in doc_lists_terms:
         doc_k[doc] = K_1 * ((1 - B) + B * (float(doc_index[doc]['words']) / avg_dl))
 
     for term in term_counts:
@@ -76,7 +76,7 @@ def query_bm25_mod(terms, index, doc_index, doc_lists_terms, **kwargs):
             n_i = float(index_entry['count'])
         except KeyError:
             continue
-        term_weight = math.log(((R_i + 0.5) / (R - R_i + 0.5)) / ((n_i - R_i + 0.5) / (n - n_i - R + R_i + 0.5)), 10)
+        term_weight = math.log(((R_i + 0.5) / (R - R_i + 0.5)) / ((n_i - R_i + 0.5) / (n - n_i - R + R_i + 0.5)))
         if term_weight < -0.25:
             term_weight = -0.25
         query_term_weight = ((K_2 + 1) * term_counts[term]) / (K_2 + term_counts[term])
@@ -99,7 +99,6 @@ def query_bm25_mod(terms, index, doc_index, doc_lists_terms, **kwargs):
             if doc[0] in kwargs['limit_to']:
                 limited_scores.append(doc)
         doc_scores = limited_scores
-    doc_scores = sorted(doc_scores, key=lambda tup: tup[2], reverse=True)
     return doc_scores
 
 
@@ -137,7 +136,7 @@ def query_bm25(terms, index, doc_index, **kwargs):
             n_i = float(index_entry['count'])
         except KeyError:
             continue
-        term_weight = math.log(((R_i + 0.5)/(R - R_i + 0.5))/((n_i - R_i + 0.5)/(n - n_i - R + R_i + 0.5)), 10)
+        term_weight = math.log(((R_i + 0.5)/(R - R_i + 0.5))/((n_i - R_i + 0.5)/(n - n_i - R + R_i + 0.5)))
         if term_weight < -0.25:
             term_weight = -0.25
         query_term_weight = ((K_2 + 1)*term_counts[term])/(K_2 + term_counts[term])

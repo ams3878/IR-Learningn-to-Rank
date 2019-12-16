@@ -21,7 +21,8 @@ from nltk.tokenize import word_tokenize
 INDEX_DIR = 'E:\_Projects\IR_P3\mysite\mathIR\static\idexTSV'
 from unidecode import unidecode
 from nltk.tokenize import word_tokenize
-
+from math import sqrt
+import tarfile
 INDEX_FILENAME = 'wiki_index.tsv'
 DOC_INDEX_FILENAME = 'doc_index.tsv'
 LINKED_FROM_INDEX_FILENAME = 'linked_from_index.tsv'
@@ -29,6 +30,7 @@ PAGE_RANK_INDEX_FILENAME = 'page_rank_index.tsv'
 ANCHOR_TEXT_INDEX_FILENAME = 'anchor_text_index.tsv'
 STEM_FILE_NAME = "wiki_stems.tsv"
 SVM_RESULTS_FILE_NAME = 'svm_weights.tsv'
+COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
 
 PAGE_RANK_PARAM = 0.15
 
@@ -40,6 +42,84 @@ def get_translation_dict():
 
 
 TRANSLATION_DICT = get_translation_dict()
+
+
+def intof(x):
+    x = x.split('-')
+    return int(x[0].zfill(2) + x[1].zfill(4))
+
+
+def get_lines(terms, index, doc_id):
+    print("get LINES")
+    doc_split = doc_id.split('-')
+    tar_num = doc_split[0]
+    f_num = int(doc_split[1])
+    print("SHIT IS SPLIT")
+    tar = tarfile.open(os.path.join(COLLECTION_DIR, "wpmath"+tar_num.zfill(7)+".tar.bz2"), 'r:bz2')
+    print("TAR IS OPEN")
+    html_file = tar.getmembers()[f_num + 1]
+    print(tar, html_file, doc_id)
+    tar.close()
+    return 1
+
+
+
+def conjuctive_query(queries, index):
+    lists = []
+    for terms_list in queries:
+        temp_list = []
+        for term in terms_list:
+            temp_list += index[term]['docs']
+        lists.append(sorted([y for y in set(temp_list)], key=lambda y: intof(y)))
+    lists = sorted([x for x in lists], key=lambda x: len(x), reverse=True)
+    list1 = lists.pop()
+    good_skips = 0
+    bad_skips = 0
+    matches = []
+    while lists:
+        ptr1 = 0
+        ptr2 = 0
+        matches = []
+        list2 = lists.pop()
+        skip1 = int(sqrt(len(list1))) // 2
+        skip2 = int(sqrt(len(list2))) // 2
+        while True:
+            try:
+                doc1 = intof(list1[ptr1])
+                doc2 = intof(list2[ptr2])
+                if doc1 == doc2:
+                    matches.append(list1[ptr1])
+                    ptr1 += 1
+                    ptr2 += 1
+                else:
+                    if doc1 < doc2:
+                        if skip1 > 2 and ptr1 % skip1 == 0 and ptr1 + skip1 < len(list1):
+                            good_skips += 1
+                            ptr1 += skip1
+                            doc1 = intof(list1[ptr1])
+
+                            if doc1 > doc2:
+                                good_skips -= 1
+                                bad_skips += 1
+                                ptr1 -= (skip1 - 1) if (doc1 - doc2) > (skip1 - 1) else (doc1 - doc2)
+                        else:
+                            ptr1 += 1
+
+                    else:
+                        if skip2 > 2 and ptr2 % skip2 == 0 and ptr2 + skip2 < len(list2):
+                            good_skips += 1
+                            ptr2 += skip2
+                            doc2 = intof(list2[ptr2])
+                            if doc2 > doc1:
+                                good_skips -= 1
+                                bad_skips += 1
+                                ptr2 -= (skip2 - 1) if (doc2 - doc1) > (skip2 - 1) else (doc2 - doc1)
+                        else:
+                            ptr2 += 1
+            except IndexError as e:
+                break
+        list1 = matches
+    return matches
 
 
 def rank_pages(doc_index):
@@ -182,6 +262,28 @@ def get_index(anchor=False):
             line = index_file.readline()
     return index
 
+
+def get_index2():
+    index = {}
+    filename = os.path.join(INDEX_DIR, INDEX_FILENAME)
+
+    with open(filename, 'r', encoding='utf-8') as index_file:
+
+        for line in index_file:
+            line = line.split('\t')
+            posting_list = line[3:]
+            index_list = []
+            posting_dict = {}
+            for posting in posting_list:
+                posting = posting.split(':')
+                docid = posting[0].split('-')
+                docid = docid[0].zfill(2) + docid[1].zfill(4)
+                index_list.append([docid, int(posting[1])])
+            posting_dict["doc_list"] = sorted(index_list)
+            posting_dict["tfidf"] = line[1]
+            posting_dict["doc_count"] = line[2]
+            index[line[0]] = posting_dict
+    return index
 
 # ---------------------------------------------------------------------------------
 # create an index from a tsv with the frequcency of words in  document windows

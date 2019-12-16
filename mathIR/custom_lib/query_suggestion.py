@@ -20,18 +20,12 @@ NUM_ASSOCIATIONS = 10
 #         dice_scores: dictionary to store dice_scores
 # @output: fixed_terms: list of corrected terms
 # ---------------------------------------------------------------------------------
-def clean_terms(terms, index, doc_index, window_index, dice_scores):
+def clean_terms(terms, index, doc_index):
     fixed_terms = []
 
-    if len(terms) == 1:
-        adj_term = None
-    else:
-        adj_term = terms[1]
     for term in terms:
-        if term != terms[0]:
-            adj_term = fixed_terms[-1]
         if term not in index:
-            most_similar = get_most_similar(term, adj_term, index, doc_index, window_index, dice_scores)
+            most_similar = get_most_similar(term, index, doc_index)
             if most_similar not in index and len(most_similar) > 2:
                 for split in range(1, len(most_similar)):
                     half1 = most_similar[:split]
@@ -58,7 +52,7 @@ def clean_terms(terms, index, doc_index, window_index, dice_scores):
 #         dice_scores: dictionary to score dice scores
 # @ouput: most_similar: string most likely to replace bad query term
 # ---------------------------------------------------------------------------------
-def get_most_similar(term, adj_term, index, doc_index, window_index, dice_scores):
+def get_most_similar(term, index, doc_index):
     most_similar = term
     most_similar_score = 0
     doc_count = len(doc_index)
@@ -74,14 +68,7 @@ def get_most_similar(term, adj_term, index, doc_index, window_index, dice_scores
                 else:
                     similarity = 1 - dist / len(word)
                 usage = int(index[word]['count']) / doc_count
-                if word in window_index and adj_term in window_index:
-                    dice = get_dice_coeff(window_index[adj_term], window_index[word])
-                    if adj_term not in dice_scores:
-                        dice_scores[adj_term] = {}
-                    dice_scores[adj_term][word] = dice
-                else:
-                    dice = 0
-                score = similarity + usage + dice
+                score = similarity + usage
                 if score > most_similar_score:
                     most_similar_score = score
                     most_similar = word
