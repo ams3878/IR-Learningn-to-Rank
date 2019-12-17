@@ -9,13 +9,14 @@ utils.py
 @author Aaron Smith, Grant Larsen
 11/26/2019
 """
+from bs4 import BeautifulSoup
 
 import re
 import os
 import string
 import csv
 import unicodedata
-
+import string
 from nltk.tokenize import word_tokenize
 
 INDEX_DIR = 'E:\_Projects\IR_P3\mysite\mathIR\static\idexTSV'
@@ -31,6 +32,8 @@ ANCHOR_TEXT_INDEX_FILENAME = 'anchor_text_index.tsv'
 STEM_FILE_NAME = "wiki_stems.tsv"
 SVM_RESULTS_FILE_NAME = 'svm_weights.tsv'
 COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
+HTML_DIR = "mathIR\static\collectionDocs\html"
+HTML_DIR = "mathIR\static\collectionDocs\html"
 
 PAGE_RANK_PARAM = 0.15
 
@@ -48,20 +51,69 @@ def intof(x):
     x = x.split('-')
     return int(x[0].zfill(2) + x[1].zfill(4))
 
-
-def get_lines(terms, index, doc_id):
-    print("get LINES")
+# ---------------------------------------------------------------------------------
+# Creates document summaries for each related document and highlights
+# any terms that match the query.  Summaries are top 5 lines after scoring each line
+# from its normalized tf*idf
+#
+# @input: term: the list of query terms used by the retrieval algorithm
+#         idf_list: list of idfs calculated by the retrieval algorithm
+#         episode: number of the episode used to get the raw html
+# @return: matched_lines: top 5 of line of the doc sum
+# ---------------------------------------------------------------------------------
+def get_lines(terms, index, doc_id, doc_name):
+    '''
     doc_split = doc_id.split('-')
     tar_num = doc_split[0]
     f_num = int(doc_split[1])
-    print("SHIT IS SPLIT")
-    tar = tarfile.open(os.path.join(COLLECTION_DIR, "wpmath"+tar_num.zfill(7)+".tar.bz2"), 'r:bz2')
-    print("TAR IS OPEN")
-    html_file = tar.getmembers()[f_num + 1]
-    print(tar, html_file, doc_id)
-    tar.close()
-    return 1
+    tpath = "wpmath"+tar_num.zfill(7)
+    tar = tarfile.open(os.path.join(COLLECTION_DIR, tpath + ".tar.bz2"), 'r:bz2')
+    html_file = ''
 
+    try:
+        html_file = tar.getmember(tpath + "/" + doc_name + ".html")
+        f = tar.extractfile(html_file)
+    except KeyError as e:
+        print(e, doc_name)
+    soup = BeautifulSoup(f.read(), 'html.parser')
+
+    '''
+    html = open(os.path.join(HTML_DIR, doc_name + ".html"))
+    print(html)
+    soup = BeautifulSoup(html, 'html.parser')
+    doc_text = soup.get_text().split('\n')
+
+    terms_dict = {}
+    for x in terms:
+        terms_dict[x] = "<b>" + x + "</b>"
+    matched_lines = []
+    try:
+        for line in doc_text:
+            if line:
+                size = len(line.split())
+                if size <= 2 or line[:4]:
+                    continue
+            else:
+                continue
+
+            score = 0
+            for t in terms:
+                score += line.count(t) * int(index[t]['idf']) / size
+            rep = dict((re.escape(k), v) for k, v in terms_dict.items())
+            pattern = re.compile("|".join(rep.keys()))
+            temp_line = pattern.sub(lambda m: rep[re.escape(m.group(0))], line)
+
+            if line != temp_line:
+                matched_lines.append((temp_line, score))
+    except KeyError as e:
+        print(e)
+    except Exception as e2:
+        print(e2)
+    if len(matched_lines) == 0:
+        return doc_text[:5]
+    html.close()
+
+    return [y[0] for y in sorted(matched_lines[0:5],  key=lambda z: z[1], reverse=True)][0:5]
 
 
 def conjuctive_query(queries, index):
@@ -328,12 +380,12 @@ def get_docs_index():
                 print(line)
             try:
                 doc_index[line[0]] = {
-                    'title' : line[1],
-                    'name' : line[2],
-                    'words' : int(line[3]),
-                    'links' : int(line[4]),
-                    'links_to' : [],
-                    'linked_from' : []
+                    'title': line[1],
+                    'name': line[2],
+                    'words': int(line[3]),
+                    'links': int(line[4]),
+                    'links_to': [],
+                    'linked_from': []
                 }
                 if int(line[4]) > 0:
                     doc_index[line[0]]['links_to'] = line[5:]
@@ -377,55 +429,8 @@ def get_stems(filename):
 
 
 
-# ---------------------------------------------------------------------------------
-# Creates document summaries for each related document and highlights
-# any terms that match the query.  Summaries are top 5 lines after scoring each line
-# from its normalized tf*idf
-#
-# @input: term: the list of query terms used by the retrieval algorithm
-#         idf_list: list of idfs calculated by the retrieval algorithm
-#         episode: number of the episode used to get the raw html
-# @return: matched_lines: top 5 of line of the doc sum
-# ---------------------------------------------------------------------------------
-def get_lines_keywords(terms, idf_list, episode):
-    f = open('ponyportal\static\episodes\\' + str(episode), 'r')
-    stopword_list = get_stopwords()
-    terms_dict = {}
-    stop_dict = {}
-    for x in terms:
-        if x not in stopword_list:
-            terms_dict[x] = "<b>" + x + "</b>"
-        else:
-            stop_dict[x] = "<b>" + x + "</b>"
-    matched_lines = []
-    matched_lines_stop = []
-    term_regex = re.compile('(.*)([\W\s])(' + '|'.join(terms_dict.keys()) + ')([\W\s])(.*)', re.IGNORECASE)
-    term_regex_stop = re.compile('(.*)([\W\s])(' + '|'.join(stop_dict.keys()) + ')([\W\s])(.*)', re.IGNORECASE)
 
-    for line in f:
-        line_list = line
-        line_list = line_list.lower().translate(str.maketrans('', '', string.punctuation)).split()
-        score = 0
-        for t in range(len(terms)):
-            if terms[t] in line_list:
-                score += idf_list[t] / len(line_list)
-        temp_line = re.sub(term_regex, lambda y: y.group(1) + y.group(2) +
-                                                 terms_dict[y.group(3).lower()]
-                                                 + y.group(4) + y.group(5), line)
-        if line != temp_line:
-            matched_lines.append((temp_line, score))
-        if len(stop_dict) != 0:
-            temp_line_stop = re.sub(term_regex_stop, lambda y: y.group(1) + y.group(2) +
-                                                               stop_dict[y.group(3).lower()]
-                                                               + y.group(4) + y.group(5), line)
-            if line != temp_line_stop:
-                matched_lines_stop.append((temp_line_stop, score))
 
-    f.close()
-
-    if len(matched_lines) < 5:
-        matched_lines += matched_lines_stop
-    return [y[0] for y in sorted(matched_lines[0:5],  key=lambda z: z[1], reverse=True)][0:5]
 
 
 # ---------------------------------------------------------------------------------

@@ -7,12 +7,16 @@ from .custom_lib.retrieval_algorithms import query
 from .custom_lib.query_expansion import expand_term
 from .custom_lib.query_suggestion import clean_terms
 import time
+import tarfile
+import os
 
 DOC_INDEX = get_docs_index()
 FREQ_INDEX = get_index()
 FREQ_INDEX2 = get_index2()
 ANCHOR_INDEX = get_index(anchor=True)
 SVM_MODEL = get_svm_weights()
+COLLECTION_DIR = "mathIR\static\mathIR\MathTagArticles"
+HTML_DIR = "mathIR\static\collectionDocs\html"
 # Stems
 try:
     STEM_DICT = get_stems('wiki_stems.tsv')
@@ -20,6 +24,12 @@ except FileNotFoundError:
     print('wiki_stems.tsv not found creating...')
     create_stems(FREQ_INDEX)
     STEM_DICT = get_stems('wiki_stems.tsv')
+
+
+def html(request):
+    info = request.GET['id'].split()
+    with open(os.path.join(HTML_DIR, info[1] + ".html")) as html_page:
+        return HttpResponse(html_page.read())
 
 def results(request):
     result_dict = {}
@@ -84,11 +94,13 @@ def results(request):
             prnt_str += '\t'
         print(prnt_str)
     t5 = time.time_ns()
-    for i in res1:
-        result_dict[i[1]] = (i[0], get_lines(terms_in, FREQ_INDEX, i[0]))
+    for i in res2:
+        result_dict[i[1]] = (i[0], get_lines(terms_in, FREQ_INDEX, i[0], i[1]))
     t6 = time.time_ns()
     time_to_query = str((t4-t3)/1000000) + "ms"
     time_to_render = str((t6-t5)/1000000) + "ms"
+    print("Render Time:", time_to_render, "Query Time: ", time_to_query)
+
     context = {'results_header': results_header,
                'terms_list': terms_in,
                'result_dict': result_dict,

@@ -152,7 +152,7 @@ def query_bm25(terms, index, doc_index, **kwargs):
 
         except KeyError:
             continue
-    doc_scores = [(doc, doc_index[doc]['name'], doc_scores[doc]) for doc in doc_scores]
+    doc_scores = [(doc, doc_index[doc]['title'], doc_scores[doc]) for doc in doc_scores]
     if 'limit_to' in kwargs:
         limited_scores = []
         for doc in doc_scores:
@@ -173,7 +173,8 @@ def score_docs(doc_ids, doc_index, features, svm_weights):
     scores = []
     for doc in range(0, len(doc_ids)):
         doc_id = doc_ids[doc]
-        scores.append((doc_id, doc_index[doc_id]['name'], sum(x_i*y_i for x_i, y_i in zip(features[doc], svm_weights))))
+        scores.append((doc_id, doc_index[doc_id]['title'], sum(x_i*y_i for x_i, y_i in zip(features[doc],
+                                                                                           svm_weights))))
     return scores
 
 

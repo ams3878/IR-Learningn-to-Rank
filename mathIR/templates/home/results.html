@@ -98,7 +98,7 @@
 
                 {% for episode, info in result_dict.items %}
                 <div style="border-style: solid;border-color:#DC2D08;margin-bottom:10px;padding-left:5px">
-                    <h2 class="results-title"><a href="../static/episodes_html/{{info.0}}.html">{{ episode }}</a></h2>
+                    <h2 class="results-title"><a href="./html?id={{info.0}}+{{episode}}">{{ episode }}</a></h2>
                         {% for line in info %}
                         {% autoescape off %}
                         <p class="results-body"> {{line}} </p>
